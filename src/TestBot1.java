@@ -14,6 +14,9 @@ public class TestBot1 extends DefaultBWListener {
     private Player self;
     
     //Greg's additions
+
+    private boolean flag = false;
+    private int last_attacked_base;
     private Position cc_position;
 	//private List<TilePosition> TakenSpots = new ArrayList<TilePosition>();
 	private Deque<Unit> BuilderSCVs = new ArrayDeque<Unit>();
@@ -77,6 +80,39 @@ public class TestBot1 extends DefaultBWListener {
         return number_of_workers;
 	}
 
+    public int countMarines() {
+    	int number_of_marines = 0;
+        for (Unit myUnit : self.getUnits()) {
+        	if (myUnit.getType() == UnitType.Terran_Marine) {
+        		number_of_marines++;
+        	}
+        }
+        return number_of_marines;
+	}
+
+	public void attackNextBase() {
+		last_attacked_base++;
+
+		last_attacked_base %= BWTA.getBaseLocations().size();
+		for (Unit myUnit : self.getUnits()) {
+			if (myUnit.getType() == UnitType.Terran_Marine) {
+				BaseLocation b = BWTA.getBaseLocations().get(last_attacked_base);
+				if (b != null) {
+					myUnit.attack(b.getPosition());
+				}
+			}
+		}
+	}
+
+    public int countBarracks() {
+    	int number_of_barracks = 0;
+        for (Unit myUnit : self.getUnits()) {
+        	if (myUnit.getType() == UnitType.Terran_Barracks) {
+        		number_of_barracks++;
+        	}
+        }
+        return number_of_barracks;
+	}
     @Override
     public void onFrame() {
         //game.setTextSize(10);
@@ -87,6 +123,13 @@ public class TestBot1 extends DefaultBWListener {
         SupplyDepots();
         Barracks();
 
+            	if (this.game.elapsedTime()%300 == 0 ) {
+            		flag = true;
+            	}
+            	if (flag == true && this.game.elapsedTime()%300 !=0) {
+            		attackNextBase();
+            		flag = false;
+            	}
         
         //iterate through my units
         for (Unit myUnit : self.getUnits()) {
@@ -101,6 +144,7 @@ public class TestBot1 extends DefaultBWListener {
             if (myUnit.getType() == UnitType.Terran_Barracks && self.minerals() >= 50 && (self.supplyTotal() - self.supplyUsed()) > 2) {
                 myUnit.train(UnitType.Terran_Marine);
             }
+
 
             idle_workers_to_minerals(myUnit);
 
@@ -142,8 +186,8 @@ public class TestBot1 extends DefaultBWListener {
  // specified TilePosition aroundTile, or null if not found. (builder parameter is our worker)
     public TilePosition getBuildTile(Unit builder, UnitType buildingType, TilePosition aroundTile) {
  	TilePosition ret = null;
- 	int maxDist = 3;
- 	int stopDist = 40;
+ 	int maxDist = 5;
+ 	int stopDist = 80;
  	
 
  	int busy_workers = 0;
@@ -236,7 +280,7 @@ public class TestBot1 extends DefaultBWListener {
     		BuilderSCVs.removeLast();
     	}
     //if we're running out of supply and have enough minerals ...
-    		if(self.minerals() >= 150 ) {
+    		if(countBarracks() < 4 && self.minerals() >= 150) {
     	//iterate over units to find a worker
     if (GathererSCVs.size() > 0 && BuilderSCVs.size() < 3) {
     	BuilderSCVs.addLast(GathererSCVs.removeLast());
