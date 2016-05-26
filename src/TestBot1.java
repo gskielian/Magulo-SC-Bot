@@ -1,5 +1,6 @@
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Iterator;
 
 import bwapi.*;
 import bwta.BWTA;
@@ -65,6 +66,16 @@ public class TestBot1 extends DefaultBWListener {
             }
         }
     }
+    
+    public int countWorkers() {
+    	int number_of_workers = 0;
+        for (Unit myUnit : self.getUnits()) {
+        	if (myUnit.getType().isWorker()) {
+        		number_of_workers++;
+        	}
+        }
+        return number_of_workers;
+	}
 
     @Override
     public void onFrame() {
@@ -82,7 +93,7 @@ public class TestBot1 extends DefaultBWListener {
             units.append(myUnit.getType()).append(" ").append(myUnit.getTilePosition()).append("\n");
 
             //if there's enough minerals, train an SCV
-            if (myUnit.getType() == UnitType.Terran_Command_Center && self.minerals() >= 50) {
+            if (myUnit.getType() == UnitType.Terran_Command_Center && self.minerals() >= 50 && countWorkers() < 24) {
                 myUnit.train(UnitType.Terran_SCV);
             }
 
@@ -134,6 +145,15 @@ public class TestBot1 extends DefaultBWListener {
  	int maxDist = 3;
  	int stopDist = 40;
  	
+
+ 	int busy_workers = 0;
+ 	for (Iterator<Unit> itr = BuilderSCVs.iterator(); itr.hasNext();) {
+ 		if (itr.next().isConstructing()) {
+ 			busy_workers++;
+ 		}
+ 	}
+ 	
+ 	if(busy_workers < 3) {
  	// Refinery, Assimilator, Extractor
  	if (buildingType.isRefinery()) {
  		for (Unit n : game.neutral().getUnits()) {
@@ -181,6 +201,8 @@ public class TestBot1 extends DefaultBWListener {
  	}
  	
  	if (ret == null) game.printf("Unable to find suitable build position for "+buildingType.toString());
+ 	return ret;
+ 	}
  	return ret;
  }
  
