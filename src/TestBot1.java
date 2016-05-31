@@ -41,6 +41,7 @@ public class TestBot1 extends DefaultBWListener {
 	
 	
 	private	int time_last_defend = 0;
+	private int defense_freq = 120;
 
 	public void run() {
 		mirror.getModule().setEventListener(this);
@@ -64,7 +65,6 @@ public class TestBot1 extends DefaultBWListener {
 		game = mirror.getGame();
 		self = game.self();
 
-		//this step may take a while for new maps
 		analyzeMap();
 
 		//fastest, fast, medium
@@ -72,7 +72,6 @@ public class TestBot1 extends DefaultBWListener {
 
 
 		for (Unit myUnit : self.getUnits()) {
-
 			if (myUnit.getType() == UnitType.Terran_Command_Center && self.minerals() >= 50) {
 				cc_position = myUnit.getPosition();
 			}
@@ -125,6 +124,16 @@ public class TestBot1 extends DefaultBWListener {
 		return number_of_barracks;
 	}
 
+	public int countAcademy() {
+		int number_of_academies = 0;
+		for (Unit myUnit : self.getUnits()) {
+			if (myUnit.getType() == UnitType.Terran_Academy) {
+				number_of_academies++;
+			}
+		}
+		return number_of_academies;
+	}
+
 	private void attackNextBase() {
 		for (Unit myUnit : self.getUnits()) {
 			if (myUnit.getType() == UnitType.Terran_Marine) {
@@ -173,8 +182,10 @@ public class TestBot1 extends DefaultBWListener {
 		//build buildings
 		SupplyDepots();
 		Barracks();
+		Academy();
 
 
+	/*
 		if (this.game.elapsedTime() % 200 == 0) {
 			attack_flag = true;
 		}
@@ -182,15 +193,14 @@ public class TestBot1 extends DefaultBWListener {
 			attackNextBase();
 			attack_flag = false;
 		}
-/*
-		if (this.game.elapsedTime() % 200 == 0) {
+		*/
+		if (this.game.elapsedTime() > 400 && this.game.elapsedTime() % 120 == 0) {
 			scout_flag = true;
 		}
-		if (scout_flag == true && this.game.elapsedTime() % 200 != 0) {
+		if (scout_flag == true && this.game.elapsedTime() % 120 != 0) {
 			scoutNextBase();
 			scout_flag = false;
 		}
-		*/
 
 		// iterate through my units
 		for (Unit myUnit : self.getUnits()) {
@@ -200,6 +210,9 @@ public class TestBot1 extends DefaultBWListener {
 			if (myUnit.getType() == UnitType.Terran_Command_Center && self.minerals() >= 50 && countWorkers() < 24) {
 				myUnit.train(UnitType.Terran_SCV);
 			}
+			if (myUnit.getType() == UnitType.Terran_Command_Center && self.minerals() >= 50 && countWorkers() >= 24) {
+				myUnit.buildAddon(UnitType.Terran_Comsat_Station);
+			}
 
 			// if there's enough scv's and minerals, train a marine
 			if (myUnit.getType() == UnitType.Terran_Barracks && self.minerals() >= 50
@@ -207,9 +220,15 @@ public class TestBot1 extends DefaultBWListener {
 				myUnit.train(UnitType.Terran_Marine);
 			}
 
-			 if(this.game.elapsedTime() - time_last_defend > 100 && myUnit.isUnderAttack()){
+			 if(ScoutSCVs.contains(myUnit) && myUnit.isUnderAttack()){
+				 //attack this base with a certain frequency later probability + frequency
+				defend(BWTA.getNearestBaseLocation(myUnit.getPosition()).getPosition());
+			 }
+			 if(this.game.elapsedTime() - time_last_defend > defense_freq && myUnit.isUnderAttack()){
+				 //attack this base with a certain frequency later probability + frequency
 				defend(myUnit.getPosition());
 			 }
+
 			idle_workers_to_minerals(myUnit);
 
 		}
@@ -221,7 +240,7 @@ public class TestBot1 extends DefaultBWListener {
 	// helper methods
 	public void idle_workers_to_minerals(Unit myUnit) {
 		// if it's a worker and it's idle, send it to the closest mineral patch
-		if (myUnit.getType().isWorker() && myUnit.isIdle()) {
+		if (myUnit.getType().isWorker() && myUnit.isIdle() && !(ScoutSCVs.contains(myUnit))) {
 			Unit closestMineral = null;
 
 			// find the closest mineral
@@ -337,6 +356,46 @@ public class TestBot1 extends DefaultBWListener {
 					self.getStartLocation());
 			if (buildTile != null) {
 				BuilderSCVs.peekLast().build(UnitType.Terran_Barracks, buildTile);
+				BuilderSCVs.addFirst(BuilderSCVs.removeLast());
+			}
+		}
+	}
+	public void Academy() {
+		while (!BuilderSCVs.isEmpty() && !BuilderSCVs.peekLast().exists()) {
+			BuilderSCVs.removeLast();
+		}
+		// if we're running out of supply and have enough minerals ...
+		if (countAcademy() < 1 && self.minerals() >= 200) {
+			// iterate over units to find a worker
+			if (GathererSCVs.size() > 0 && BuilderSCVs.size() < 3) {
+				BuilderSCVs.addLast(GathererSCVs.removeLast());
+			}
+			System.out.println("BuilderSCVs " + BuilderSCVs.toString());
+			System.out.println("Gatherer SCvs" + GathererSCVs.toString());
+			TilePosition buildTile = getBuildTile(BuilderSCVs.peekLast(), UnitType.Terran_Academy,
+					self.getStartLocation());
+			if (buildTile != null) {
+				BuilderSCVs.peekLast().build(UnitType.Terran_Academy, buildTile);
+				BuilderSCVs.addFirst(BuilderSCVs.removeLast());
+			}
+		}
+	}
+	public void Refinery() {
+		while (!BuilderSCVs.isEmpty() && !BuilderSCVs.peekLast().exists()) {
+			BuilderSCVs.removeLast();
+		}
+		// if we're running out of supply and have enough minerals ...
+		if (countAcademy() < 1 && self.minerals() >= 200) {
+			// iterate over units to find a worker
+			if (GathererSCVs.size() > 0 && BuilderSCVs.size() < 3) {
+				BuilderSCVs.addLast(GathererSCVs.removeLast());
+			}
+			System.out.println("BuilderSCVs " + BuilderSCVs.toString());
+			System.out.println("Gatherer SCvs" + GathererSCVs.toString());
+			TilePosition buildTile = getBuildTile(BuilderSCVs.peekLast(), UnitType.Terran_Academy,
+					self.getStartLocation());
+			if (buildTile != null) {
+				BuilderSCVs.peekLast().build(UnitType.Terran_Academy, buildTile);
 				BuilderSCVs.addFirst(BuilderSCVs.removeLast());
 			}
 		}
